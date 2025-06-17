@@ -14,12 +14,10 @@ BLOCK_SPACING_Y = 2
 BLOCK_ROWS = 5
 BLOCK_MARGIN_Y = 20
 
-# 横方向の自動計算
 BLOCK_COLS = (SCREEN_WIDTH + BLOCK_SPACING_X) // (BLOCK_WIDTH + BLOCK_SPACING_X)
 total_blocks_width = BLOCK_COLS * BLOCK_WIDTH + (BLOCK_COLS - 1) * BLOCK_SPACING_X
 BLOCK_MARGIN_X = (SCREEN_WIDTH - total_blocks_width) // 2
 
-# ゲーム状態
 STATE_MENU = 0
 STATE_PLAY = 1
 STATE_GAME_OVER = 2
@@ -29,6 +27,8 @@ class App:
     def __init__(self):
         pyxel.init(SCREEN_WIDTH, SCREEN_HEIGHT, title="Block Breaking")
         self.reset()
+        self.init_sound()
+        pyxel.playm(0)  
         pyxel.run(self.update, self.draw)
 
     def reset(self):
@@ -45,6 +45,12 @@ class App:
                 y = BLOCK_MARGIN_Y + row * (BLOCK_HEIGHT + BLOCK_SPACING_Y)
                 self.blocks.append((x, y, True))
 
+    def init_sound(self):
+        pyxel.sound(0).set("c3", "p", "6", "n", 15) 
+        pyxel.sound(1).set("g3", "p", "5", "n", 15) 
+        pyxel.sound(2).set("c1e1g1c2", "t", "7", "f", 25)
+        pyxel.music(0).set([2], [0], [0], [0])
+
     def update(self):
         if self.state == STATE_MENU:
             if pyxel.btnp(pyxel.KEY_SPACE) or pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_A):
@@ -58,7 +64,6 @@ class App:
                 self.reset()
 
     def update_play(self):
-        # パドル操作
         if pyxel.btn(pyxel.KEY_LEFT):
             self.paddle_x -= 2.5
         if pyxel.btn(pyxel.KEY_RIGHT):
@@ -66,37 +71,33 @@ class App:
 
         self.paddle_x = max(0, min(SCREEN_WIDTH - PADDLE_WIDTH, self.paddle_x))
 
-        # ボール移動
         self.ball_x += self.ball_vx
         self.ball_y += self.ball_vy
 
-        # 壁反射
         if self.ball_x < 0 or self.ball_x > SCREEN_WIDTH - BALL_SIZE:
             self.ball_vx *= -1
         if self.ball_y < 0:
             self.ball_vy *= -1
 
-        # パドル反射
         if (self.paddle_x <= self.ball_x <= self.paddle_x + PADDLE_WIDTH) and \
            (self.ball_y + BALL_SIZE >= SCREEN_HEIGHT - 10):
             self.ball_vy *= -1
             self.ball_y = SCREEN_HEIGHT - 10 - BALL_SIZE
+            pyxel.play(0, 0)  # パドル音
 
-        # ブロック衝突
         new_blocks = []
         for x, y, is_alive in self.blocks:
             if is_alive and x < self.ball_x + BALL_SIZE and self.ball_x < x + BLOCK_WIDTH and \
                y < self.ball_y + BALL_SIZE and self.ball_y < y + BLOCK_HEIGHT:
                 self.ball_vy *= -1
                 is_alive = False
+                pyxel.play(1, 1)  
             new_blocks.append((x, y, is_alive))
         self.blocks = new_blocks
 
-        # ゲームオーバー判定
         if self.ball_y > SCREEN_HEIGHT:
             self.state = STATE_GAME_OVER
 
-        # クリア判定
         if all(not alive for _, _, alive in self.blocks):
             self.state = STATE_GAME_CLEAR
 
@@ -109,11 +110,8 @@ class App:
             text_y = (SCREEN_HEIGHT - 8) // 2
             pyxel.text(text_x, text_y, text, pyxel.frame_count % 16)
         elif self.state == STATE_PLAY:
-            # パドル
             pyxel.rect(self.paddle_x, SCREEN_HEIGHT - 10, PADDLE_WIDTH, PADDLE_HEIGHT, 11)
-            # ボール
             pyxel.circ(self.ball_x, self.ball_y, BALL_SIZE // 2, 7)
-            # ブロック
             for x, y, is_alive in self.blocks:
                 if is_alive:
                     pyxel.rect(x, y, BLOCK_WIDTH, BLOCK_HEIGHT, 9)
